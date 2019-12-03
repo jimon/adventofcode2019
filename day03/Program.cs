@@ -72,16 +72,14 @@ namespace day03
                         if (x == cx && y == cy)
                             // going back to start?
                             throw new ArgumentException("test");
-//                        else if (value != 0)
-//                            steps = value; // if we encounter something from before, amount of steps is always fewer
-                        else
+                        else if (value == 0)
                             map[lineIdx, x, y] = steps;
 
                         for (int j = 0; j < lineIdx; ++j)
                         {
                             if (map[j, x, y] != 0)
                             {
-                                crossings.Add((distance: Math.Abs(cx - x) + Math.Abs(cy - y), steps: steps + map[j, x, y]));
+                                crossings.Add((distance: Math.Abs(cx - x) + Math.Abs(cy - y), steps: map[lineIdx, x, y] + map[j, x, y]));
                             }
                         }
                     }
