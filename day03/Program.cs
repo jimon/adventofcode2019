@@ -45,59 +45,60 @@ namespace day03
             return l;
         }
 
-        private static IEnumerable<int> Crossings(int size, Line[] lines)
+        private static (int distance, int steps) Crossings(int size, Line[] lines)
         {
             int w = size;
             int h = size;
             int cx = w / 2;
             int cy = h / 2;
-            var map = new int[w,h];
+            var map = new int[lines.Length,w,h];
 
-            for (int lineIdx = 1; lineIdx <= lines.Length; ++lineIdx)
+            var crossings = new HashSet<(int distance, int steps)>(); 
+
+            for (int lineIdx = 0; lineIdx < lines.Length; ++lineIdx)
             {
                 int x = cx;
                 int y = cy;
-                foreach (var move in lines[lineIdx - 1].Moves)
+                int steps = 0;
+                foreach (var move in lines[lineIdx].Moves)
                 {
                     for (int i = 0; i < move.Len; ++i)
                     {
                         x += move.Dx;
                         y += move.Dy;
-                        
-                        var value = map[x, y];
-                        if (x != cx && y != cy && value != 0 && value != lineIdx)
-                        {
-                            if (value != -1)
-                            {
-                                var dist = Math.Abs(cx - x) + Math.Abs(cy - y);
-                                yield return dist;
-                            }
+                        steps++;
+                        var value = map[lineIdx, x, y];
 
-                            map[x, y] = -1;
-                        }
+                        if (x == cx && y == cy)
+                            // going back to start?
+                            throw new ArgumentException("test");
+//                        else if (value != 0)
+//                            steps = value; // if we encounter something from before, amount of steps is always fewer
                         else
+                            map[lineIdx, x, y] = steps;
+
+                        for (int j = 0; j < lineIdx; ++j)
                         {
-                            map[x, y] = lineIdx;
+                            if (map[j, x, y] != 0)
+                            {
+                                crossings.Add((distance: Math.Abs(cx - x) + Math.Abs(cy - y), steps: steps + map[j, x, y]));
+                            }
                         }
                     }
                 }
             }
 
-//            for (int y = 0; y < h; ++y)
-//            {
-//                for (int x = 0; x < w; ++x)
-//                    Console.Write(map[x, y]);
-//                Console.Write("\n");
-//            }
+            return (distance: crossings.Select(x => x.distance).Min(), steps: crossings.Select(x => x.steps).Min());
         }
         
         static void Main(string[] args)
         {
-            Console.WriteLine($"example1 {Crossings(20, new Line[] {ParseLine("R8,U5,L5,D3"), ParseLine("U7,R6,D4,L4")}).Min()} = 6");
-            Console.WriteLine($"example2 {Crossings(500, new Line[] {ParseLine("R75,D30,R83,U83,L12,D49,R71,U7,L72"), ParseLine("U62,R66,U55,R34,D71,R55,D58,R83")}).Min()} = 159");
-            Console.WriteLine($"example3 {Crossings(500, new Line[] {ParseLine("R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51"), ParseLine("U98,R91,D20,R16,D67,R40,U7,R15,U6,R7")}).Min()} = 135");
+            Console.WriteLine($"example1 {Crossings(20, new Line[] {ParseLine("R8,U5,L5,D3"), ParseLine("U7,R6,D4,L4")})} = (6, 30)");
+            Console.WriteLine($"example2 {Crossings(500, new Line[] {ParseLine("R75,D30,R83,U83,L12,D49,R71,U7,L72"), ParseLine("U62,R66,U55,R34,D71,R55,D58,R83")})} = (159, 610)");
+            Console.WriteLine($"example3 {Crossings(500, new Line[] {ParseLine("R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51"), ParseLine("U98,R91,D20,R16,D67,R40,U7,R15,U6,R7")})} = (135, 410)");
 
-            Console.WriteLine($"part1 {Crossings(20000, File.ReadAllLines("input1.txt").Select(line => ParseLine(line)).ToArray()).Min()}");
+            // 3720 is too low
+            Console.WriteLine($"result {Crossings(20000, File.ReadAllLines("input1.txt").Select(line => ParseLine(line)).ToArray())}");
 
 
         }
