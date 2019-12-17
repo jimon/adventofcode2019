@@ -384,6 +384,181 @@ namespace day17
                     r = r.Append((char) val.Value);
             }
         }
+        
+        static void Part2(char[,] map, int w, int h, int sx, int sy, Direction direction)
+        {
+            var prevDirection = direction;
+            int cx = sx;
+            int cy = sy;
+            int step = 0;
+            var steps = new List<string>();
+            var run = true;
+            while (run)
+            {
+                if (cx < 0 || cy < 0 || cx >= w || cy >= h)
+                    break;
+
+                var (nx, ny) = Move(cx, cy, direction);
+                // if for some reason next cell is not valid
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h || map[nx, ny] != '#')
+                {
+                    // try steer the robot
+                    //steps.Add((count: step, direction: direction));
+                    
+                    if (step > 0)
+                        steps.Add($"{step}");
+                    step = 0;
+                    
+                    if (cx - 1 >= 0 && direction != Direction.Right && map[cx - 1, cy] == '#')
+                        direction = Direction.Left;
+                    else if (cx + 1 < w && direction != Direction.Left && map[cx + 1, cy] == '#')
+                        direction = Direction.Right;
+                    else if (cy - 1 >= 0 && direction != Direction.Down && map[cx, cy - 1] == '#')
+                        direction = Direction.Up;
+                    else if (cy + 1 < h && direction != Direction.Up && map[cx, cy + 1] == '#')
+                        direction = Direction.Down;
+                    else
+                    {
+                        run = false;
+                        break;
+                    }
+
+                    char? rotate = null;
+                    switch (prevDirection)
+                    {
+                        case Direction.Left:
+                        {
+                            switch (direction)
+                            {
+                                case Direction.Up:
+                                    rotate = 'R';
+                                    break;
+                                case Direction.Down:
+                                    rotate = 'L';
+                                    break;
+                            }
+
+                            break;
+                        }
+                        case Direction.Up:
+                        {
+                            switch (direction)
+                            {
+                                case Direction.Left:
+                                    rotate = 'L';
+                                    break;
+                                case Direction.Right:
+                                    rotate = 'R';
+                                    break;
+                            }
+
+                            break;
+                        }
+                        case Direction.Right:
+                        {
+                            switch (direction)
+                            {
+                                case Direction.Up:
+                                    rotate = 'L';
+                                    break;
+                                case Direction.Down:
+                                    rotate = 'R';
+                                    break;
+                            }
+
+                            break;
+                        }
+                        case Direction.Down:
+                        {
+                            switch (direction)
+                            {
+                                case Direction.Left:
+                                    rotate = 'R';
+                                    break;
+                                case Direction.Right:
+                                    rotate = 'L';
+                                    break;
+                            }
+                            break;
+                        }
+                    }
+                    
+                    if (rotate.HasValue)
+                        steps.Add($"{rotate}");
+                    
+                    prevDirection = direction; 
+
+                    (cx, cy) = Move(cx, cy, direction);
+
+                    //Console.WriteLine($"steering {direction} and new pos {cx}, {cy}");
+                }
+                else
+                {
+                    step++;
+                    // move keeping same direction
+                    cx = nx;
+                    cy = ny;
+                }
+            }
+
+            Console.WriteLine($"steps: {string.Join("", steps)}");
+            
+            // numbers here are off by 1
+            // A R5L9R7R7
+            // B R11L9R5L9
+            // C R11L7L9
+            //
+            // A C A B C B A C A B
+            //
+            
+            var rom = CPU.LoadRom("input1.txt");
+            rom[0] = 2;
+            var cpu = new CPU(rom, new Int64[] { });
+
+            cpu.Run();
+            
+            while (true)
+            {
+                var val = cpu.PopOutout();
+            
+                if (!val.HasValue)
+                    break;
+                
+                Console.Write((char)val.Value);
+            }
+            
+            PushStringToCpu(cpu, "A,C,A,B,C,B,A,C,A,B");
+            PushStringToCpu(cpu, "R,6,L,10,R,8,R,8");
+            PushStringToCpu(cpu, "R,12,L,10,R,6,L,10");
+            PushStringToCpu(cpu, "R,12,L,8,L,10");
+            PushStringToCpu(cpu, "n");
+
+            cpu.Run();
+            
+            while (true)
+            {
+                var val = cpu.PopOutout();
+            
+                if (!val.HasValue)
+                    break;
+
+                if (val.Value > 255)
+                {
+                    Console.WriteLine($"part2 = {val.Value} = 1168948");
+                }
+                else
+                    Console.Write((char)val.Value);
+            }
+        }
+
+        static void PushStringToCpu(CPU cpu, string str)
+        {
+            foreach (var c in str.Select(x => x))
+            {
+                cpu.PushInput((Int64)c);
+            }
+            cpu.PushInput(10);
+        }
 
         static void Main(string[] args)
         {
@@ -412,6 +587,7 @@ namespace day17
                 sy,
                 d) = ParseMap(GetMapCharsFromInputProgram().ToArray());
             Console.WriteLine($"part1 = {Part1(map, w, h, sx, sy, d)} = 8408");
+            Part2(map, w, h, sx, sy, d);
         }
     }
 }
