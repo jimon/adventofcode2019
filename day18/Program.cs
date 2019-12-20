@@ -35,7 +35,7 @@ namespace day18
             return cost.CompareTo(other.cost);
         }
     };
-    
+
     class Map
     {
         private char[,] map;
@@ -65,8 +65,9 @@ namespace day18
                     }
                     else if (v >= 'A' && v <= 'Z')
                     {
-                        doorToPos[v.ToString().ToLower()[0]] = pos;
-                        map[x, y] = '.';
+                        var vl = v.ToString().ToLower()[0];
+                        doorToPos[vl] = pos;
+                        map[x, y] = vl;
                     }
                 }
             }
@@ -80,15 +81,26 @@ namespace day18
         public int? Distance(char fromKey, char toKey)
         {
             var visited = new bool[w, h];
-            var dst = new C5.IPriorityQueueHandle<Vec2Cost>[w, h]; 
+            var heapHandles = new C5.IPriorityQueueHandle<Vec2Cost>[w, h];
+            var distance = new int[w, h];
+            var reachable = new bool[w, h];
             var heap = new C5.IntervalHeap<Vec2Cost>();
 
             var start = keyToPos[fromKey];
+            var end = keyToPos[toKey];
+
             for (int x = 0; x < w; ++x)
             {
                 for (int y = 0; y < h; ++y)
                 {
-                    heap.Add(ref dst[x, y], new Vec2Cost(Vec2.Set(x, y), x == start.x && y == start.y ? 0 : Int32.MaxValue));
+                    var v = map[x, y];
+                    var d = (x == start.x && y == start.y) ? 0 : Int32.MaxValue;
+                    distance[x, y] = d;
+                    if ((v != '#') && ((v == '.') || openDoors.Contains(v)))
+                    {
+                        reachable[x, y] = true;
+                        heap.Add(ref heapHandles[x, y], new Vec2Cost(Vec2.Set(x, y), d));
+                    }
                 }
             }
 
@@ -96,29 +108,39 @@ namespace day18
             {
                 C5.IPriorityQueueHandle<Vec2Cost> handle = null;
                 Vec2Cost p = heap.DeleteMin(out handle);
+                // some nodes are not actually reachable
+                if (p.cost == Int32.MaxValue)
+                    break;
                 visited[p.pos.x, p.pos.y] = true;
-                
-
+                heapHandles[p.pos.x, p.pos.y] = null;
                 foreach (var adj in AdjacentTo(p.pos))
                 {
-                    var v = map[adj.x, adj.y];
-                    if (v == '#')
+                    if (!reachable[adj.x, adj.y])
                         continue;
-
-                    var old_cost = dst[adj.x, adj.y];
+                    var old_cost = distance[adj.x, adj.y];
                     var new_cost = p.cost + 1;
                     if (new_cost < old_cost)
                     {
                         distance[adj.x, adj.y] = new_cost;
-                        if (!visited)
-                        {
-                            heap.Replace();
-                        }
+                        if (!visited[adj.x, adj.y])
+                            heap.Replace(heapHandles[adj.x, adj.y], new Vec2Cost(adj, new_cost));
                     }
                 }
             }
-            
-            return null;
+            //
+            // for (int y = 0; y < h; ++y)
+            // {
+            //     for (int x = 0; x < w; ++x)
+            //     {
+            //         Console.Write((distance[x, y] < Int32.MaxValue) ? 1 : 0);
+            //     }
+            //     Console.Write('\n');
+            // }
+
+            int dist = distance[end.x, end.y];
+            if (dist == Int32.MaxValue)
+                return null;
+            return dist;
         }
 
         public void OpenDoor(char door)
@@ -173,15 +195,15 @@ namespace day18
 
             Console.WriteLine($"{map.Distance('@', 'a')}");
 
-            // map.OpenDoor('c');
-            // map.OpenDoor('a');
-            //
-            // Console.WriteLine($"{map.Distance('@', 'b')}");
-            // Console.WriteLine($"{map.Distance('@', 'e')}");
-            //
-            // map.ResetDoors();
-            //
-            // Console.WriteLine($"{map.Distance('@', 'b')}");
+            map.OpenDoor('c');
+            map.OpenDoor('a');
+
+            Console.WriteLine($"{map.Distance('@', 'b')}");
+            Console.WriteLine($"{map.Distance('@', 'e')}");
+
+            map.ResetDoors();
+
+            Console.WriteLine($"{map.Distance('@', 'b')}");
         }
     }
 }
