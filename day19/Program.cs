@@ -205,18 +205,14 @@ namespace day19
     
     class Program
     {
-        static void Main(string[] args)
+        static int Part1(CPU cpu, Int64[] ramDump, int w = 50, int h = 50)
         {
-            var rom = CPU.LoadRom("input1.txt");
-            var cpu = new CPU(rom, new long[0]);
-            var ram = cpu.DumpRam();
-
             int count = 0;
-            for (int y = 0; y < 50; ++y)
+            for (int y = 0; y < h; ++y)
             {
-                for (int x = 0; x < 50; ++x)
+                for (int x = 0; x < w; ++x)
                 {
-                    cpu.RestoreRam(ram);
+                    cpu.RestoreRam(ramDump);
                     cpu.Reset();
                     cpu.PushInput(x);
                     cpu.PushInput(y);
@@ -224,20 +220,77 @@ namespace day19
                     switch (cpu.PopOutout().Value)
                     {
                         case 0:
-                            Console.Write('.');
+                            //Console.Write('.');
                             break;
                         case 1:
+                            //Console.Write('#');
                             count++;
-                            Console.Write('#');
-                            break;
-                        default:
-                            Console.WriteLine("invalid value");
                             break;
                     }
                 }
-                Console.Write('\n');
+                //Console.Write('\n');
             }
-            Console.WriteLine($"part1 = {count}");
+            return count;
+        }
+
+        static int FindEdge(CPU cpu, Int64[] ramDump, int fromX, int toX, int y)
+        {
+            int dx = (fromX < toX ? 1 : -1);
+            for (int x = fromX; x != toX + dx; x += dx)
+            {
+                cpu.RestoreRam(ramDump);
+                cpu.Reset();
+                cpu.PushInput(x);
+                cpu.PushInput(y);
+                cpu.Run();
+                switch (cpu.PopOutout().Value)
+                {
+                    case 0:
+                        break;
+                    case 1:
+                        return x;
+                }
+            }
+
+            return -1;
+        }
+
+        static int Part2(CPU cpu, Int64[] ramDump, int sx = 6, int sy = 5)
+        {
+            int xl = sx;
+            int xr = sx;
+            int y = sy;
+            
+            var prev = new (int xl, int xr)[10000];
+            
+            while (true)
+            {
+                y++;
+                xl = FindEdge(cpu, ramDump, xl - 4, xl + 4, y);
+                xr = FindEdge(cpu, ramDump, xr + 4, xr - 4, y);
+
+                prev[y] = (xl: xl, xr: xr);
+
+                if (y >= sy + 100)
+                {
+                    var p = prev[y - 100 + 1];
+
+                    if (xl >= p.xl && xl + 99 <= p.xr)
+                    {
+                        return xl * 10000 + (y - 100 + 1);
+                    }
+                }
+            }
+        }
+
+        static void Main(string[] args)
+        {
+            var rom = CPU.LoadRom("input1.txt");
+            var cpu = new CPU(rom, new long[0], 1024);
+            var ramDump = cpu.DumpRam();
+
+            Console.WriteLine($"part1 = {Part1(cpu, ramDump)} = 118");
+            Console.WriteLine($"part2 = {Part2(cpu, ramDump)} = 18651593");
         }
     }
 }
