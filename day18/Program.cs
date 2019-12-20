@@ -39,9 +39,9 @@ namespace day18
     class Map
     {
         private char[,] map;
+        public int keysCount;
         private Dictionary<char, Vec2> keyToPos = new Dictionary<char, Vec2>();
         private Dictionary<char, Vec2> doorToPos = new Dictionary<char, Vec2>();
-        private HashSet<char> openDoors = new HashSet<char>();
         private int w;
         private int h;
 
@@ -60,6 +60,7 @@ namespace day18
 
                     if ((v >= 'a' && v <= 'z') || v == '@')
                     {
+                        keysCount++;
                         keyToPos[v] = pos;
                         map[x, y] = '.';
                     }
@@ -73,12 +74,7 @@ namespace day18
             }
         }
 
-        public char[] Keys()
-        {
-            return keyToPos.Keys.ToArray();
-        }
-
-        public int? Distance(char fromKey, char toKey)
+        public (char key, int dist)[] Distance(char fromKey, bool[] reachedKeys)
         {
             var visited = new bool[w, h];
             var heapHandles = new C5.IPriorityQueueHandle<Vec2Cost>[w, h];
@@ -87,7 +83,6 @@ namespace day18
             var heap = new C5.IntervalHeap<Vec2Cost>();
 
             var start = keyToPos[fromKey];
-            var end = keyToPos[toKey];
 
             for (int x = 0; x < w; ++x)
             {
@@ -96,7 +91,7 @@ namespace day18
                     var v = map[x, y];
                     var d = (x == start.x && y == start.y) ? 0 : Int32.MaxValue;
                     distance[x, y] = d;
-                    if ((v != '#') && ((v == '.') || openDoors.Contains(v)))
+                    if ((v != '#') && ((v == '.') || reachedKeys[v]))
                     {
                         reachable[x, y] = true;
                         heap.Add(ref heapHandles[x, y], new Vec2Cost(Vec2.Set(x, y), d));
@@ -137,21 +132,19 @@ namespace day18
             //     Console.Write('\n');
             // }
 
-            int dist = distance[end.x, end.y];
-            if (dist == Int32.MaxValue)
-                return null;
-            return dist;
-        }
-
-        public void OpenDoor(char door)
-        {
-            if (!openDoors.Contains(door))
-                openDoors.Add(door);
-        }
-
-        public void ResetDoors()
-        {
-            openDoors = new HashSet<char>();
+            var dist = new List<(char key, int dist)>();
+            foreach (var p in keyToPos)
+            {
+                if (p.Key != fromKey)
+                {
+                    int d = distance[p.Value.x, p.Value.y];
+                    if (d != Int32.MaxValue)
+                    {
+                        dist.Add((key: p.Key, dist: d));
+                    }
+                }
+            }
+            return dist.ToArray();
         }
 
         private IEnumerable<Vec2> AdjacentTo(Vec2 p)
@@ -184,26 +177,40 @@ namespace day18
             return new Map(map, w, h);
         }
 
+        static int Part1(Map map)
+        {
+            var reachedKeys = new bool[255];
+            reachedKeys['@'] = true;
+            return Part1Rec(map, '@', reachedKeys, 1);
+        }
+
+        static int Part1Rec(Map map, char key, bool[] reachedKeys, int reachedKeysCount)
+        {
+            var dist = map
+                .Distance(key, reachedKeys)
+                .Where(x => !reachedKeys[x.key])
+                .OrderBy(x => x.dist);
+
+            int best = Int32.MaxValue;
+
+            foreach (var p in dist)
+            {
+                reachedKeys[p.key] = true;
+                int val = Part1Rec(map, p.key, reachedKeys, reachedKeysCount + 1);
+                reachedKeys[p.key] = false;
+                if (val < Int32.MaxValue && (val + p.dist < best))
+                    best = val + p.dist;
+            }
+
+            return best < Int32.MaxValue ? best : (reachedKeysCount == map.keysCount ? 0 : Int32.MaxValue);
+        }
+
         static void Main(string[] args)
         {
-            // ref1 = 86
-            // ref2 = 132
-            // ref3 = 136
-            // ref4 = 81
-
-            var map = Parse("ref1.txt");
-
-            Console.WriteLine($"{map.Distance('@', 'a')}");
-
-            map.OpenDoor('c');
-            map.OpenDoor('a');
-
-            Console.WriteLine($"{map.Distance('@', 'b')}");
-            Console.WriteLine($"{map.Distance('@', 'e')}");
-
-            map.ResetDoors();
-
-            Console.WriteLine($"{map.Distance('@', 'b')}");
+            Console.WriteLine($"ref1 = {Part1(Parse("ref1.txt"))} = 86");
+            Console.WriteLine($"ref2 = {Part1(Parse("ref2.txt"))} = 132");
+            Console.WriteLine($"ref3 = {Part1(Parse("ref3.txt"))} = 136");
+            Console.WriteLine($"ref4 = {Part1(Parse("ref4.txt"))} = 81");
         }
     }
 }
