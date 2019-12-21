@@ -205,10 +205,10 @@ namespace day21
     
     class Program
     {
-        static void Main(string[] args)
+        static void Part1()
         {
             var rom = CPU.LoadRom("input1.txt");
-            var cpu = new CPU(rom, string.Join("\n", File.ReadAllLines("asm.txt").Append("\n")).Select(x => (long)x).ToArray());
+            var cpu = new CPU(rom, string.Join("\n", File.ReadAllLines("asm1.txt").Where(x => x.Length > 0).Append("\n")).Select(x => (long)x).ToArray());
             
             cpu.Run();
 
@@ -222,7 +222,33 @@ namespace day21
                     Console.Write((char)o.Value);
                 else
                     Console.WriteLine($"part1 = {o.Value}");
-            }
+            } 
+        }
+        
+        static void Part2()
+        {
+            var rom = CPU.LoadRom("input1.txt");
+            var cpu = new CPU(rom, string.Join("\n", File.ReadAllLines("asm2.txt").Where(x => x.Length > 0).Append("\n")).Select(x => (long)x).ToArray());
+            
+            cpu.Run();
+
+            while (true)
+            {
+                var o = cpu.PopOutout();
+                if (!o.HasValue)
+                    break;
+                
+                if (o.Value <= 255)
+                    Console.Write((char)o.Value);
+                else
+                    Console.WriteLine($"part1 = {o.Value}");
+            } 
+        }
+        
+        static void Main(string[] args)
+        {
+            Part1();
+            Part2();
         }
     }
 }
