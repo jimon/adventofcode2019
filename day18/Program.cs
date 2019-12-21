@@ -196,7 +196,7 @@ namespace day18
             var dist = new List<(char key, int dist)>();
             foreach (var p in keyToPos)
             {
-                if (p.Key != fromKey && p.Key != '@')
+                if (p.Key != fromKey && p.Key != '@' && reachedKeys[p.Key - 'a'] == false )
                 {
                     int d = distance[p.Value.x, p.Value.y];
                     if (d != Int32.MaxValue)
@@ -253,7 +253,7 @@ namespace day18
         static int Part1Rec(Map map, char key, bool[] reachedKeys, int reachedKeysCount)
         {
             progress++;
-            if (progress % 100000 == 0)
+            if (progress % 1000 == 0)
             {
                 Console.WriteLine($"{progress}");
             }
@@ -263,8 +263,8 @@ namespace day18
 
             var dist = map
                 .Distance(key, reachedKeys)
-                .Where(x => !reachedKeys[x.key - 'a'])
-                .OrderBy(x => x.dist);
+                .Where(x => !reachedKeys[x.key - 'a']);
+                //.OrderBy(x => x.dist);
 
             int best = Int32.MaxValue;
 
