@@ -15,14 +15,21 @@ deal^-1(pos', offset):
 cut^-1(pos', offset):
   pos + w * y = pos' + offset
 
+a * x + b ≡ c (mod d)
+
+
 
 
 a * x + b ≡ y (mod w)
 
+a * (a * x + b) + b
+
+
+
 1 * x + 0 ≡ y (mod w)
 
 -1 * x + w + 1 ≡ y (mod w)
-a * x1 + b - w * k = y
+a2 * a1 * x1 + b - w * k = y
 
 
 

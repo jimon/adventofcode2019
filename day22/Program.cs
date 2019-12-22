@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -8,7 +7,7 @@ namespace day22
 {
     class Program
     {
-        // convert operations to a*x + b ≡ y (mod w)
+        // convert operations to a*x + b ≡ c (mod deckSize)
         static (BigInteger a, BigInteger b) Parse(string filename, BigInteger deckSize)
         {
             BigInteger a = new BigInteger(1);
@@ -36,62 +35,100 @@ namespace day22
                         b *= o;
                     }
                 }
-
-                a %= deckSize;
-                b %= deckSize;
             }
 
-            return (a, b);
-            
+            // not strictly required, but helps to keep numbers down
+            return (BringValueToPositiveRange(a, deckSize), BringValueToPositiveRange(b, deckSize));
         }
-        static int[] ShuffleDeck(int deckSize, BigInteger a, BigInteger b)
+        
+        static (BigInteger a, BigInteger b) ParseInverse(string filename, BigInteger deckSize)
         {
-            var deck = new int[deckSize];
-            for (int i = 0; i < deckSize; ++i)
-                deck[(int)SolveDiophantine(a, i, b, deckSize)] = i;
-            return deck;
+            BigInteger a = new BigInteger(1);
+            BigInteger b = new BigInteger(0);
+
+            foreach (var l in File.ReadAllLines(filename).Reverse())
+            {
+                if (l == "deal into new stack")
+                {
+                    b += 1;
+                    a *= -1;
+                    b *= -1;
+                }
+                else
+                {
+                    int o = Int32.Parse(l.Split(" ").Last());
+
+                    if (l.StartsWith("cut "))
+                    {
+                        b += o;
+                    }
+                    else if (l.StartsWith("deal with increment "))
+                    {
+                        var o2 = BigInteger.ModPow(o, deckSize - 2, deckSize);
+                        a *= o2;
+                        b *= o2;
+                    }
+                }
+            }
+
+            // not strictly required, but helps to keep numbers down
+            return (BringValueToPositiveRange(a, deckSize), BringValueToPositiveRange(b, deckSize));
         }
 
-        static string DeckToString(int[] deck)
-        {
-            return string.Join(" ", deck);
-        }
 
         static void RefPart1(string filename, string refStr)
         {
             var deckSize = 10;
             var (a, b) = Parse(filename, deckSize);
-            var deck = ShuffleDeck(deckSize, a, b);
-            var refDeck = refStr.Split(" ").Select(x => Int32.Parse(x)).ToArray();
+            var deck = new int[deckSize];
+            for (int i = 0; i < deckSize; ++i)
+                deck[(int)CalculateDiophantine(a, i, b, deckSize)] = i;
+            var deckStr = string.Join(" ", deck);
             Console.WriteLine(
-                $"{filename} = {DeckToString(deck)} = {refStr} ({(deck.SequenceEqual(refDeck) ? "ok" : "not ok")})");
+                $"{filename} = {deckStr} = {refStr} ({(deckStr == refStr ? "ok" : "not ok")})");
         }
 
-        static int Part1()
+        static int Part1(int card, int deckSize)
         {
-            var deckSize = 10007;
             var (a, b) = Parse("input1.txt", deckSize);
-            return (int)SolveDiophantine(a, 2019, b, deckSize);
+            return (int)CalculateDiophantine(a, card, b, deckSize);
         }
 
-        // a*x + b ≡ y (mod w)
-        // given a, x, b, w, find smallest positive y
-        static BigInteger SolveDiophantine(BigInteger a, BigInteger x, BigInteger b, BigInteger w)
+        // repeats a*x + b ≡ c (mod deckSize) amount of times
+        // meaning nesting one into another, as in:
+        // a * (a*x+b) + b ≡ c (mod deckSize)
+        // a^2*x + a*b + b ≡ c (mod deckSize)
+        // so
+        // a^times*x + a^times-1*b + a^times-2*b + ... + b ≡ c (mod deckSize)
+        static (BigInteger a, BigInteger b) RepeatConjectureTimes(BigInteger a, BigInteger b, BigInteger times, BigInteger deckSize)
         {
-            int k = 0;
+            var a2 = BigInteger.ModPow(a, times, deckSize);
+            //var b2 = b * (a ^ times - 1) / (a - 1);
+            var b2 = b * (BigInteger.ModPow(a, times, deckSize) + deckSize - 1) * BigInteger.ModPow(a - 1, deckSize - 2, deckSize);
+            // not strictly required, but helps to keep numbers down
+            return (BringValueToPositiveRange(a2, deckSize), BringValueToPositiveRange(b2, deckSize));
+        }
 
-            // lol bruteforce
-            while (true)
-            {
-                var y = a * x + b + w * k;
+        static BigInteger Part2(BigInteger card, BigInteger deckSize, BigInteger times)
+        {
+            var (a, b) = ParseInverse("input1.txt", deckSize);
+            (a, b) = RepeatConjectureTimes(a, b, times, deckSize);
+            return CalculateDiophantine(a, card, b, deckSize);
+        }
 
-                if (y < 0)
-                    k++;
-                else if (y >= w)
-                    k--;
-                else
-                    return y;
-            }
+        // calculate c given
+        // a * x + b ≡ c (mod deckSize)
+        // which means calculating simple linear diophantine
+        // a * x + b = c - deckSize * y 
+        static BigInteger CalculateDiophantine(BigInteger a, BigInteger x, BigInteger b, BigInteger deckSize)
+        {
+            return BringValueToPositiveRange(a * x + b, deckSize);
+        }
+        
+        // brings value to [0, end)
+        static BigInteger BringValueToPositiveRange(BigInteger value, BigInteger end)
+        {
+            return (value % end + end) % end;
         }
 
         static void Main(string[] args)
@@ -100,15 +137,9 @@ namespace day22
             RefPart1("ref2.txt", "3 0 7 4 1 8 5 2 9 6");
             RefPart1("ref3.txt", "6 3 0 7 4 1 8 5 2 9");
             RefPart1("ref4.txt", "9 2 5 8 1 4 7 0 3 6");
-
-            Console.WriteLine($"part1 = {Part1()} = 6129");
-
-
-
-            // part2
-            // 119315717514047 cards
-            // 101741582076661 times
-            // 2020 card value
+            
+            Console.WriteLine($"part1 = {Part1(2019, 10007)} = 6129");
+            Console.WriteLine($"part2 = {Part2(2020, 119315717514047, 101741582076661)} = 71345377301237");
         }
     }
 }
