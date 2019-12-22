@@ -1,0 +1,71 @@
+part2
+119315717514047 cards
+101741582076661 times
+2020 card value
+
+
+inverse(pos) = w - pos + 1
+deal(pos, offset) = (pos * offset) % w;
+cut(pos, offset) = (pos - offset + w) % w
+
+inverse^-1(pos'):
+  -pos = pos' - w - 1
+deal^-1(pos', offset):
+  offset * pos + w * y = pos'
+cut^-1(pos', offset):
+  pos + w * y = pos' + offset
+
+
+
+a * x + b ≡ y (mod w)
+
+1 * x + 0 ≡ y (mod w)
+
+-1 * x + w + 1 ≡ y (mod w)
+a * x1 + b - w * k = y
+
+
+
+0 1 2 3 4 5 6 7 8 9   Your deck
+. . . . . . . . . .   Space on table
+^                     Current position
+
+Deal the top card to the current position:
+
+  1 2 3 4 5 6 7 8 9   Your deck
+0 . . . . . . . . .   Space on table
+^                     Current position
+
+Move the current position right 3:
+
+  1 2 3 4 5 6 7 8 9   Your deck
+0 . . . . . . . . .   Space on table
+      ^               Current position
+
+Deal the top card:
+
+    2 3 4 5 6 7 8 9   Your deck
+0 . . 1 . . . . . .   Space on table
+      ^               Current position
+
+Move right 3 and deal:
+
+      3 4 5 6 7 8 9   Your deck
+0 . . 1 . . 2 . . .   Space on table
+            ^         Current position
+
+Move right 3 and deal:
+
+        4 5 6 7 8 9   Your deck
+0 . . 1 . . 2 . . 3   Space on table
+                  ^   Current position
+
+Move right 3, wrapping around, and deal:
+
+          5 6 7 8 9   Your deck
+0 . 4 1 . . 2 . . 3   Space on table
+    ^                 Current position
+
+And so on:
+
+0 7 4 1 8 5 2 9 6 3   Space on table
