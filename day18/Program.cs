@@ -37,25 +37,25 @@ namespace day18
         }
     };
     
-    class HeapValue : IComparable<HeapValue>
-    {
-        public char key;
-        public int steps;
-        public HashSet<char> hasKeys;
-
-        public HeapValue(char setKey, int setSteps, HashSet<char> setHasKeys)
-        {
-            key = setKey;
-            steps = setSteps;
-            hasKeys = setHasKeys;
-        }
-
-        public int CompareTo(HeapValue other)
-        {
-            return steps.CompareTo(other.steps);
-        }
-    };
-
+    // class HeapValue : IComparable<HeapValue>
+    // {
+    //     public char key;
+    //     public int steps;
+    //     public HashSet<char> hasKeys;
+    //
+    //     public HeapValue(char setKey, int setSteps, HashSet<char> setHasKeys)
+    //     {
+    //         key = setKey;
+    //         steps = setSteps;
+    //         hasKeys = setHasKeys;
+    //     }
+    //
+    //     public int CompareTo(HeapValue other)
+    //     {
+    //         return steps.CompareTo(other.steps);
+    //     }
+    // };
+    
     class Map
     {
         private char[,] map;
@@ -68,10 +68,24 @@ namespace day18
         private Dictionary<Vec2, uint> posToMapKey = new Dictionary<Vec2, uint>();
         private Dictionary<uint, char> mapKeyToNeedsAKey = new Dictionary<uint, char>();
 
-        public Dictionary<char, Dictionary<char, (int steps, HashSet<char> neededKeys)>> keyToKeyMap =
-            new Dictionary<char, Dictionary<char, (int steps, HashSet<char> neededKeys)>>();
+        public Dictionary<char, Dictionary<char, (int steps, int neededKeys)>> keyToKeyMap =
+            new Dictionary<char, Dictionary<char, (int steps, int neededKeys)>>();
 
-        public int keysCount;
+        private int keysCount;
+
+        static int KeyToBits(char key)
+        {
+            if (key == '@')
+                return 1;
+            return 1 << (key - 'a' + 1);
+        }
+        
+        static IEnumerable<char> BitsToKeys(int bits)
+        {
+            for (int i = 0; i < 32; ++i)
+                if ((bits & (1 << i)) != 0)
+                    yield return i == 0 ? '@' : (char)(i - 1 + 'a');
+        }
 
         public Map(char[,] setMap, int setW, int setH)
         {
@@ -93,8 +107,8 @@ namespace day18
 
                     if ((v >= 'a' && v <= 'z') || (v == '@'))
                     {
-                        keyToPos[v] = pos;
                         keysCount++;
+                        keyToPos[v] = pos;
                     }
                     else if (v >= 'A' && v <= 'Z')
                     {
@@ -131,7 +145,7 @@ namespace day18
             var r = new Dictionary<char, Dictionary<char, (int steps, HashSet<char> needsKeys)>>();
             foreach (var fromKeyPair in keyToPos)
             {
-                keyToKeyMap[fromKeyPair.Key] = new Dictionary<char, (int steps, HashSet<char> needsKeys)>();
+                keyToKeyMap[fromKeyPair.Key] = new Dictionary<char, (int steps, int needsKeys)>();
                 foreach (var toKeyPair in keyToPos)
                 {
                     var mapKey1 = posToMapKey[fromKeyPair.Value];
@@ -149,7 +163,7 @@ namespace day18
                             neededKeys.Add(needsAKey);
                     }
 
-                    keyToKeyMap[fromKeyPair.Key][toKeyPair.Key] = (steps: t.Distance, neededKeys);
+                    keyToKeyMap[fromKeyPair.Key][toKeyPair.Key] = (steps: t.Distance, neededKeys.Select(x => KeyToBits(x)).Sum());
                 }
             }
         }
@@ -166,51 +180,43 @@ namespace day18
                 yield return new Vec2(p.x + 1, p.y);
         }
         
-        private Dictionary<char, (int steps, HashSet<char> keys)> visited = new Dictionary<char, (int steps, HashSet<char> keys)>();
-        private C5.IntervalHeap<HeapValue> heap = new C5.IntervalHeap<HeapValue>();
+        //private Dictionary<char, (int steps, HashSet<char> keys)> visited = new Dictionary<char, (int steps, HashSet<char> keys)>();
+        //private C5.IntervalHeap<HeapValue> heap = new C5.IntervalHeap<HeapValue>();
 
         public int Part1()
         {
-            //var reachedKeys = new bool[map.keysCount];
-            //return Part1Rec(map, '@', reachedKeys, 1);
-            //return Part1Rec(map, '@', new HashSet<char> {'@'});
-
-            //Dictionary<>
-
-            //var visited = new [char.MaxValue];
-            //var distance = new int[char.MaxValue];
-            
-            Part1VisitKey('@', 0, new HashSet<char>());
-            
-            
-            // dijkstra on keyToKeyMap
-            while (!heap.IsEmpty)
-            {
-                HeapValue v = heap.DeleteMin();
-                if (v.hasKeys.Count + 1 == keysCount)
-                    return v.steps;
-                
-                Part1VisitKey(v.key, v.steps, v.hasKeys.Append(v.key).ToHashSet());
-            }
-
-            return -1;
+            return Part1Rec('@', KeyToBits('@'), 1);
         }
 
-        private void Part1VisitKey(char key, int steps, HashSet<char> keys)
-        {
-            if (!visited.ContainsKey(key))
-            {
-                visited[key] = (steps: steps, keys: keys);
+        private Dictionary<Tuple<char, int>, int> cache = new Dictionary<Tuple<char, int>, int>();
 
-                foreach (var p in keyToKeyMap[key])
-                    if (!visited.ContainsKey(p.Key) && !p.Value.neededKeys.Except(keys).Any())
-                        heap.Add(new HeapValue(p.Key, p.Value.steps, keys));
-            }
-            else if (steps < visited[key].steps)
-            {
-                visited[key] = (steps: steps, keys: keys);
-            }
+        private int Part1Rec(char key, int hasKeys, int deep)
+        {
+            if (deep == keysCount)
+                return 0;
+
+            var tuple = new Tuple<char, int>(key, hasKeys);
+            int cachedSteps = cache.GetValueOrDefault(tuple, 0);
+            if (cachedSteps > 0)
+                return cachedSteps;
+
+            var thisAndHasKeys = KeyToBits(key) | hasKeys;
+
+            var traverse = keyToKeyMap[key]
+                .Where(x => ((thisAndHasKeys & KeyToBits(x.Key)) == 0) &&
+                            ((thisAndHasKeys & x.Value.neededKeys) == x.Value.neededKeys));
             
+            int best = Int32.MaxValue;
+            foreach (var p in traverse)
+            {
+                int v = Part1Rec(p.Key, thisAndHasKeys, deep + 1) + p.Value.steps;
+                if (v < best)
+                    best = v;
+            }
+
+            cache[tuple] = best;
+
+            return best;
         }
     };
 
@@ -231,96 +237,14 @@ namespace day18
             return new Map(map, w, h);
         }
 
-        static int Part1(Map map)
-        {
-            return map.Part1();
-        }
-
-
-        /*
-
-        static int Part1Rec(Map map, char fromKey, HashSet<char> hasKeys, int keysCount = 1)
-        {
-            if (keysCount == map.keysCount)
-                return 0;
-
-            var traverse = map
-                .keyToKeyMap[fromKey]
-                .Where(x => !hasKeys.Contains(x.Key))
-                .Where(x => !x.Value.neededKeys.Except(hasKeys).Any());
-                //.OrderBy(x => x.Value.steps);
-
-            int bestSteps = Int32.MaxValue;
-            int v = 0;
-            foreach (var keyValuePair in traverse)
-            {
-                int stepsToReachKey = keyValuePair.Value.steps;
-                if (stepsToReachKey >= bestSteps)
-                    continue;
-
-                //Console.WriteLine($"{Enumerable.Repeat(' ', keysCount)}trying {fromKey} -> {keyValuePair.Key}");
-
-                int stepsRec = Part1Rec(map, keyValuePair.Key, hasKeys.Append(keyValuePair.Key).ToHashSet(),
-                    keysCount + 1);
-                if (stepsRec == Int32.MaxValue)
-                    continue;
-
-                if (stepsRec + stepsToReachKey < bestSteps)
-                {
-                    bestSteps = stepsRec + stepsToReachKey;
-                }
-            }
-
-
-            return bestSteps;
-        }
-        
-        */
-
-        //static long progress = 0;
-
-        /*
-        static int Part1Rec(Map map, char key, bool[] reachedKeys, int reachedKeysCount)
-        {
-            progress++;
-            if (progress % 1000 == 0)
-            {
-                Console.WriteLine($"{progress}");
-            }
-
-            if (reachedKeysCount >= map.keysCount)
-                return 0;
-
-            var dist = map
-                .Distance(key, reachedKeys)
-                .Where(x => !reachedKeys[x.key - 'a']);
-                //.OrderBy(x => x.dist);
-
-            int best = Int32.MaxValue;
-
-            foreach (var p in dist)
-            {
-                if (p.dist > best)
-                    continue;
-                reachedKeys[p.key - 'a'] = true;
-                int val = Part1Rec(map, p.key, reachedKeys, reachedKeysCount + 1);
-                reachedKeys[p.key - 'a'] = false;
-                if (val < Int32.MaxValue && (val + p.dist < best))
-                    best = val + p.dist;
-            }
-
-            return best;
-        }
-        */
-
         static void Main(string[] args)
         {
-            Console.WriteLine($"ref1 = {Part1(Parse("ref1.txt"))} = 86");
-            Console.WriteLine($"ref2 = {Part1(Parse("ref2.txt"))} = 132");
-            Console.WriteLine($"ref3 = {Part1(Parse("ref3.txt"))} = 136");
-            Console.WriteLine($"ref4 = {Part1(Parse("ref4.txt"))} = 81");
+            Console.WriteLine($"ref1 = {Parse("ref1.txt").Part1()} = 86");
+            Console.WriteLine($"ref2 = {Parse("ref2.txt").Part1()} = 132");
+            Console.WriteLine($"ref3 = {Parse("ref3.txt").Part1()} = 136");
+            Console.WriteLine($"ref4 = {Parse("ref4.txt").Part1()} = 81");
 
-            //Console.WriteLine($"part1 = {Part1(Parse("input1.txt"))} = ");
+            Console.WriteLine($"part1 = {Parse("input1.txt").Part1()} = 5964");
         }
     }
 }
