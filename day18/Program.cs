@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections;
-//using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-//using C5;
 using Dijkstra.NET.Graph;
 using Dijkstra.NET.ShortestPath;
 
@@ -37,6 +34,25 @@ namespace day18
         public override int GetHashCode()
         {
             return HashCode.Combine(x, y);
+        }
+    };
+    
+    class HeapValue : IComparable<HeapValue>
+    {
+        public char key;
+        public int steps;
+        public HashSet<char> hasKeys;
+
+        public HeapValue(char setKey, int setSteps, HashSet<char> setHasKeys)
+        {
+            key = setKey;
+            steps = setSteps;
+            hasKeys = setHasKeys;
+        }
+
+        public int CompareTo(HeapValue other)
+        {
+            return steps.CompareTo(other.steps);
         }
     };
 
@@ -149,6 +165,53 @@ namespace day18
             if (p.x < w - 1)
                 yield return new Vec2(p.x + 1, p.y);
         }
+        
+        private Dictionary<char, (int steps, HashSet<char> keys)> visited = new Dictionary<char, (int steps, HashSet<char> keys)>();
+        private C5.IntervalHeap<HeapValue> heap = new C5.IntervalHeap<HeapValue>();
+
+        public int Part1()
+        {
+            //var reachedKeys = new bool[map.keysCount];
+            //return Part1Rec(map, '@', reachedKeys, 1);
+            //return Part1Rec(map, '@', new HashSet<char> {'@'});
+
+            //Dictionary<>
+
+            //var visited = new [char.MaxValue];
+            //var distance = new int[char.MaxValue];
+            
+            Part1VisitKey('@', 0, new HashSet<char>());
+            
+            
+            // dijkstra on keyToKeyMap
+            while (!heap.IsEmpty)
+            {
+                HeapValue v = heap.DeleteMin();
+                if (v.hasKeys.Count + 1 == keysCount)
+                    return v.steps;
+                
+                Part1VisitKey(v.key, v.steps, v.hasKeys.Append(v.key).ToHashSet());
+            }
+
+            return -1;
+        }
+
+        private void Part1VisitKey(char key, int steps, HashSet<char> keys)
+        {
+            if (!visited.ContainsKey(key))
+            {
+                visited[key] = (steps: steps, keys: keys);
+
+                foreach (var p in keyToKeyMap[key])
+                    if (!visited.ContainsKey(p.Key) && !p.Value.neededKeys.Except(keys).Any())
+                        heap.Add(new HeapValue(p.Key, p.Value.steps, keys));
+            }
+            else if (steps < visited[key].steps)
+            {
+                visited[key] = (steps: steps, keys: keys);
+            }
+            
+        }
     };
 
     class Program
@@ -168,14 +231,13 @@ namespace day18
             return new Map(map, w, h);
         }
 
-
         static int Part1(Map map)
         {
-            //var reachedKeys = new bool[map.keysCount];
-            //return Part1Rec(map, '@', reachedKeys, 1);
-            return Part1Rec(map, '@', new HashSet<char> {'@'});
+            return map.Part1();
         }
 
+
+        /*
 
         static int Part1Rec(Map map, char fromKey, HashSet<char> hasKeys, int keysCount = 1)
         {
@@ -212,6 +274,8 @@ namespace day18
 
             return bestSteps;
         }
+        
+        */
 
         //static long progress = 0;
 
