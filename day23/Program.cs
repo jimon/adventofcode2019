@@ -209,7 +209,7 @@ namespace day23
         static int Part1(int count = 50)
         {
             var rom = CPU.LoadRom("input1.txt");
-            var cpus = Enumerable.Range(0, count).Select(i => new CPU(rom, new Int64[]{i})).ToArray();
+            var cpus = Enumerable.Range(0, count).Select(i => new CPU(rom, new Int64[] {i})).ToArray();
 
             var rx = new Dictionary<int, List<Int64>>();
             for (int i = 0; i < count; ++i)
@@ -253,10 +253,84 @@ namespace day23
                 }
             }
         }
-        
+
+        static int Part2(int count = 50)
+        {
+            var rom = CPU.LoadRom("input1.txt");
+            var cpus = Enumerable.Range(0, count).Select(i => new CPU(rom, new Int64[] {i})).ToArray();
+
+            var rx = new Dictionary<int, List<Int64>>();
+            for (int i = 0; i < count; ++i)
+                rx[i] = new List<Int64>();
+
+            var nat = new Int64[2];
+            bool natAvailable = false;
+
+            Int64? prevY = null;
+
+            while (true)
+            {
+                foreach (var cpu in cpus)
+                {
+                    cpu.Run();
+
+                    while (true)
+                    {
+                        var d = cpu.PopOutout();
+                        var x = cpu.PopOutout();
+                        var y = cpu.PopOutout();
+
+                        if (!d.HasValue)
+                            break;
+
+                        if (d.Value == 255)
+                        {
+                            nat[0] = x.Value;
+                            nat[1] = y.Value;
+                            natAvailable = true;
+                        }
+                        else
+                        {
+                            rx[(int) d.Value].Add(x.Value);
+                            rx[(int) d.Value].Add(y.Value);
+                        }
+                    }
+                }
+
+                bool any = false;
+                for (int i = 0; i < count; ++i)
+                {
+                    if (rx[i].Count > 0)
+                    {
+                        any = true;
+                        foreach (var l in rx[i])
+                            cpus[i].PushInput(l);
+                        rx[i].Clear();
+                    }
+                    else
+                    {
+                        cpus[i].PushInput(-1);
+                    }
+                }
+
+                if (!any && natAvailable)
+                {
+                    cpus[0].PushInput(nat[0]);
+                    cpus[0].PushInput(nat[1]);
+                    natAvailable = false;
+
+                    if (prevY.HasValue && prevY.Value == nat[1])
+                        return (int) prevY;
+
+                    prevY = nat[1];
+                }
+            }
+        }
+
         static void Main(string[] args)
         {
             Console.WriteLine($"part1 = {Part1()} = 27846");
+            Console.WriteLine($"part2 = {Part2()} = 19959");
         }
     }
 }
