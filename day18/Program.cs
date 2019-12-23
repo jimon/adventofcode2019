@@ -1,227 +1,153 @@
 ﻿using System;
 using System.Collections;
+//using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using C5;
+//using C5;
+using Dijkstra.NET.Graph;
+using Dijkstra.NET.ShortestPath;
 
 namespace day18
 {
-    struct Vec2
+    class Vec2 : IEquatable<Vec2>
     {
         public int x;
         public int y;
 
-        public static Vec2 Set(int x, int y)
+        public Vec2(int setX, int setY)
         {
-            var v = new Vec2();
-            v.x = x;
-            v.y = y;
-            return v;
-        }
-    };
-
-    class Vec2Cost : IComparable<Vec2Cost>
-    {
-        public Vec2 pos;
-        public int cost;
-
-        public Vec2Cost(Vec2 setPos, int setCost)
-        {
-            pos = setPos;
-            cost = setCost;
+            x = setX;
+            y = setY;
         }
 
-        public int CompareTo(Vec2Cost other)
+        public bool Equals(Vec2 other)
         {
-            return cost.CompareTo(other.cost);
-        }
-    };
-
-    class CacheKey : IStructuralEquatable
-    {
-        public char from;
-        public bool[] state;
-
-        public bool Equals(object? other, IEqualityComparer comparer)
-        {
-            var k = (CacheKey) other;
-            if (from == k.from && state.Length == k.state.Length)
-            {
-                for (int i = 0; i < state.Length; ++i)
-                    if (state[i] != k.state[i])
-                        return false;
-                return true;
-            }
-
-            return false;
+            return x == other.x && y == other.y;
         }
 
-        public int GetHashCode(IEqualityComparer comparer)
+        public override bool Equals(object obj)
         {
-            int hash = from.GetHashCode();
-            for (int i = 0; i < state.Length; ++i)
-                hash = hash * 23 + state[i].GetHashCode();
-            return hash;
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != this.GetType()) return false;
+            return Equals((Vec2) obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(x, y);
         }
     };
 
     class Map
     {
-        private Byte[,] map;
-        public int keysCount;
+        private char[,] map;
         private Dictionary<char, Vec2> keyToPos = new Dictionary<char, Vec2>();
         private Dictionary<char, Vec2> doorToPos = new Dictionary<char, Vec2>();
         private int w;
         private int h;
 
+        private Graph<Vec2, int> mapGraph = new Graph<Vec2, int>();
+        private Dictionary<Vec2, uint> posToMapKey = new Dictionary<Vec2, uint>();
+        private Dictionary<uint, char> mapKeyToNeedsAKey = new Dictionary<uint, char>();
+
+        public Dictionary<char, Dictionary<char, (int steps, HashSet<char> neededKeys)>> keyToKeyMap =
+            new Dictionary<char, Dictionary<char, (int steps, HashSet<char> neededKeys)>>();
+
+        public int keysCount;
+
         public Map(char[,] setMap, int setW, int setH)
         {
             w = setW;
             h = setH;
-            map = new byte[w,h];
-
-            for (int x = 0; x < w; ++x)
-            {
-                for (int y = 0; y < h; ++y)
-                {
-                    var v = setMap[x, y];
-                    
-                    var pos = Vec2.Set(x, y);
-
-                    if (v == '#')
-                    {
-                        map[x, y] = 0;
-                    }
-                    else if (v == '.')
-                    {
-                        map[x, y] = byte.MaxValue;
-                    }
-                    if ((v >= 'a' && v <= 'z') || v == '@')
-                    {
-                        keysCount++;
-                        keyToPos[v] = pos;
-                        map[x, y] = byte.MaxValue;
-                    }
-                    else if (v >= 'A' && v <= 'Z')
-                    {
-                        var vl = v.ToString().ToLower()[0];
-                        doorToPos[vl] = pos;
-                        map[x, y] = (byte)(vl - 'a' + 1);
-                    }
-                }
-            }
-        }
-
-        private bool[,] visited;
-        private IPriorityQueueHandle<Vec2Cost>[,] heapHandles;
-        private int[,] distance;
-        private bool[,] reachable;
-        private IntervalHeap<Vec2Cost> heap;
-
-        public Dictionary<CacheKey, (char key, int dist)[]> cache = new Dictionary<CacheKey, (char key, int dist)[]>();
-
-        public (char key, int dist)[] Distance(char fromKey, bool[] reachedKeys)
-        {
-            CacheKey cacheKey = new CacheKey();
-            cacheKey.from = fromKey;
-            cacheKey.state = (bool[])reachedKeys.Clone();
-            
-            if (cache.ContainsKey(cacheKey))
-            {
-                 return cache[cacheKey];
-            }
-            
-            if (visited == null)
-            {
-                visited = new bool[w, h];
-                heapHandles = new C5.IPriorityQueueHandle<Vec2Cost>[w, h];
-                distance = new int[w, h];
-                reachable = new bool[w, h];
-                heap = new C5.IntervalHeap<Vec2Cost>();
-
-                for (int x = 0; x < w; ++x)
-                {
-                    for (int y = 0; y < h; ++y)
-                    {
-                        heap.Add(ref heapHandles[x, y], new Vec2Cost(Vec2.Set(x, y), Int32.MaxValue));
-                    }
-                }
-            }
-
-            var start = keyToPos[fromKey];
+            map = (char[,]) setMap.Clone();
 
             for (int x = 0; x < w; ++x)
             {
                 for (int y = 0; y < h; ++y)
                 {
                     var v = map[x, y];
-                    var d = (x == start.x && y == start.y) ? 0 : Int32.MaxValue;
-                    visited[x, y] = false;
-                    distance[x, y] = d;
-                    if ((v > 0) && ((v == byte.MaxValue) || reachedKeys[v - 1]))
-                    {
-                        reachable[x, y] = true;
-                        heap.Replace(heapHandles[x, y], new Vec2Cost(Vec2.Set(x, y), d));
-                    }
-                    else
-                        reachable[x, y] = false;
-                }
-            }
-
-            while (!heap.IsEmpty)
-            {
-                C5.IPriorityQueueHandle<Vec2Cost> handle = null;
-                Vec2Cost p = heap.FindMin(out handle);
-                // some nodes are not actually reachable
-                if (p.cost == Int32.MaxValue)
-                    break;
-                heap.Replace(heapHandles[p.pos.x, p.pos.y], new Vec2Cost(p.pos, Int32.MaxValue));
-                visited[p.pos.x, p.pos.y] = true;
-                foreach (var adj in AdjacentTo(p.pos))
-                {
-                    if (!reachable[adj.x, adj.y])
+                    if (v == '#')
                         continue;
-                    var old_cost = distance[adj.x, adj.y];
-                    var new_cost = p.cost + 1;
-                    if (new_cost < old_cost)
+
+                    var pos = new Vec2(x, y);
+                    var node = mapGraph.AddNode(pos);
+                    posToMapKey[pos] = node;
+
+                    if ((v >= 'a' && v <= 'z') || (v == '@'))
                     {
-                        distance[adj.x, adj.y] = new_cost;
-                        if (!visited[adj.x, adj.y])
-                            heap.Replace(heapHandles[adj.x, adj.y], new Vec2Cost(adj, new_cost));
+                        keyToPos[v] = pos;
+                        keysCount++;
+                    }
+                    else if (v >= 'A' && v <= 'Z')
+                    {
+                        doorToPos[v] = pos;
+                        mapKeyToNeedsAKey[node] = v.ToString().ToLower().First();
                     }
                 }
             }
 
-            var dist = new List<(char key, int dist)>();
-            foreach (var p in keyToPos)
+            for (int x = 0; x < w; ++x)
             {
-                if (p.Key != fromKey && p.Key != '@' && reachedKeys[p.Key - 'a'] == false )
+                for (int y = 0; y < h; ++y)
                 {
-                    int d = distance[p.Value.x, p.Value.y];
-                    if (d != Int32.MaxValue)
+                    var v = map[x, y];
+                    if (v == '#')
+                        continue;
+
+                    var pos = new Vec2(x, y);
+                    var key1 = posToMapKey[pos];
+
+                    foreach (var adj in AdjacentTo(pos))
                     {
-                        dist.Add((key: p.Key, dist: d));
+                        var a = map[adj.x, adj.y];
+                        if (a == '#')
+                            continue;
+                        var key2 = posToMapKey[adj];
+                        mapGraph.Connect(key1, key2, 1, 0);
                     }
                 }
             }
 
-            var distArr = dist.ToArray();
+            // sad that Dijkstra.NET is cannot provide actual map of results
+            // so have to do O(N^2) here 
+            var r = new Dictionary<char, Dictionary<char, (int steps, HashSet<char> needsKeys)>>();
+            foreach (var fromKeyPair in keyToPos)
+            {
+                keyToKeyMap[fromKeyPair.Key] = new Dictionary<char, (int steps, HashSet<char> needsKeys)>();
+                foreach (var toKeyPair in keyToPos)
+                {
+                    var mapKey1 = posToMapKey[fromKeyPair.Value];
+                    var mapKey2 = posToMapKey[toKeyPair.Value];
+                    var t = mapGraph.Dijkstra(mapKey1, mapKey2);
 
-            cache[cacheKey] = distArr;
-            return distArr;
+                    if (t.IsFounded == false)
+                        throw new ArgumentException($"no path from {fromKeyPair} -> {toKeyPair}");
+
+                    var neededKeys = new HashSet<char>();
+                    foreach (var u in t.GetPath())
+                    {
+                        var needsAKey = mapKeyToNeedsAKey.GetValueOrDefault(u, (char) 0);
+                        if (needsAKey != 0)
+                            neededKeys.Add(needsAKey);
+                    }
+
+                    keyToKeyMap[fromKeyPair.Key][toKeyPair.Key] = (steps: t.Distance, neededKeys);
+                }
+            }
         }
 
         private IEnumerable<Vec2> AdjacentTo(Vec2 p)
         {
             if (p.y > 0)
-                yield return Vec2.Set(p.x, p.y - 1);
+                yield return new Vec2(p.x, p.y - 1);
             if (p.y < h - 1)
-                yield return Vec2.Set(p.x, p.y + 1);
+                yield return new Vec2(p.x, p.y + 1);
             if (p.x > 0)
-                yield return Vec2.Set(p.x - 1, p.y);
+                yield return new Vec2(p.x - 1, p.y);
             if (p.x < w - 1)
-                yield return Vec2.Set(p.x + 1, p.y);
+                yield return new Vec2(p.x + 1, p.y);
         }
     };
 
@@ -242,14 +168,54 @@ namespace day18
             return new Map(map, w, h);
         }
 
+
         static int Part1(Map map)
         {
-            var reachedKeys = new bool[map.keysCount];
-            return Part1Rec(map, '@', reachedKeys, 1);
+            //var reachedKeys = new bool[map.keysCount];
+            //return Part1Rec(map, '@', reachedKeys, 1);
+            return Part1Rec(map, '@', new HashSet<char> {'@'});
         }
 
-        static long progress = 0;
 
+        static int Part1Rec(Map map, char fromKey, HashSet<char> hasKeys, int keysCount = 1)
+        {
+            if (keysCount == map.keysCount)
+                return 0;
+
+            var traverse = map
+                .keyToKeyMap[fromKey]
+                .Where(x => !hasKeys.Contains(x.Key))
+                .Where(x => !x.Value.neededKeys.Except(hasKeys).Any());
+                //.OrderBy(x => x.Value.steps);
+
+            int bestSteps = Int32.MaxValue;
+            int v = 0;
+            foreach (var keyValuePair in traverse)
+            {
+                int stepsToReachKey = keyValuePair.Value.steps;
+                if (stepsToReachKey >= bestSteps)
+                    continue;
+
+                //Console.WriteLine($"{Enumerable.Repeat(' ', keysCount)}trying {fromKey} -> {keyValuePair.Key}");
+
+                int stepsRec = Part1Rec(map, keyValuePair.Key, hasKeys.Append(keyValuePair.Key).ToHashSet(),
+                    keysCount + 1);
+                if (stepsRec == Int32.MaxValue)
+                    continue;
+
+                if (stepsRec + stepsToReachKey < bestSteps)
+                {
+                    bestSteps = stepsRec + stepsToReachKey;
+                }
+            }
+
+
+            return bestSteps;
+        }
+
+        //static long progress = 0;
+
+        /*
         static int Part1Rec(Map map, char key, bool[] reachedKeys, int reachedKeysCount)
         {
             progress++;
@@ -281,6 +247,7 @@ namespace day18
 
             return best;
         }
+        */
 
         static void Main(string[] args)
         {
@@ -288,8 +255,8 @@ namespace day18
             Console.WriteLine($"ref2 = {Part1(Parse("ref2.txt"))} = 132");
             Console.WriteLine($"ref3 = {Part1(Parse("ref3.txt"))} = 136");
             Console.WriteLine($"ref4 = {Part1(Parse("ref4.txt"))} = 81");
-            
-            Console.WriteLine($"part1 = {Part1(Parse("input1.txt"))} = ");
+
+            //Console.WriteLine($"part1 = {Part1(Parse("input1.txt"))} = ");
         }
     }
 }
