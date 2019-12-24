@@ -36,7 +36,7 @@ namespace day18
             return HashCode.Combine(x, y);
         }
     };
-    
+
     // class HeapValue : IComparable<HeapValue>
     // {
     //     public char key;
@@ -55,7 +55,7 @@ namespace day18
     //         return steps.CompareTo(other.steps);
     //     }
     // };
-    
+
     class Map
     {
         private char[,] map;
@@ -75,16 +75,10 @@ namespace day18
 
         static int KeyToBits(char key)
         {
-            if (key == '@')
-                return 1;
-            return 1 << (key - 'a' + 1);
-        }
-        
-        static IEnumerable<char> BitsToKeys(int bits)
-        {
-            for (int i = 0; i < 32; ++i)
-                if ((bits & (1 << i)) != 0)
-                    yield return i == 0 ? '@' : (char)(i - 1 + 'a');
+            int val = key - 'a';
+            if (val < 0 || val > 31)
+                throw new ArgumentException($"invalid key {key}");
+            return 1 << val;
         }
 
         public Map(char[,] setMap, int setW, int setH)
@@ -105,7 +99,7 @@ namespace day18
                     var node = mapGraph.AddNode(pos);
                     posToMapKey[pos] = node;
 
-                    if ((v >= 'a' && v <= 'z') || (v == '@'))
+                    if ((v >= 'a' && v <= 'z') || (v == '{') || (v == '|') || (v == '}') || (v == '~'))
                     {
                         keysCount++;
                         keyToPos[v] = pos;
@@ -148,12 +142,16 @@ namespace day18
                 keyToKeyMap[fromKeyPair.Key] = new Dictionary<char, (int steps, int needsKeys)>();
                 foreach (var toKeyPair in keyToPos)
                 {
+                    if (toKeyPair.Key == fromKeyPair.Key)
+                        continue;
+
                     var mapKey1 = posToMapKey[fromKeyPair.Value];
                     var mapKey2 = posToMapKey[toKeyPair.Value];
                     var t = mapGraph.Dijkstra(mapKey1, mapKey2);
 
                     if (t.IsFounded == false)
-                        throw new ArgumentException($"no path from {fromKeyPair} -> {toKeyPair}");
+                        continue;
+                    //throw new ArgumentException($"no path from {fromKeyPair} -> {toKeyPair}");
 
                     var neededKeys = new HashSet<char>();
                     foreach (var u in t.GetPath())
@@ -163,7 +161,8 @@ namespace day18
                             neededKeys.Add(needsAKey);
                     }
 
-                    keyToKeyMap[fromKeyPair.Key][toKeyPair.Key] = (steps: t.Distance, neededKeys.Select(x => KeyToBits(x)).Sum());
+                    keyToKeyMap[fromKeyPair.Key][toKeyPair.Key] =
+                        (steps: t.Distance, neededKeys.Select(x => KeyToBits(x)).Sum());
                 }
             }
         }
@@ -179,13 +178,13 @@ namespace day18
             if (p.x < w - 1)
                 yield return new Vec2(p.x + 1, p.y);
         }
-        
+
         //private Dictionary<char, (int steps, HashSet<char> keys)> visited = new Dictionary<char, (int steps, HashSet<char> keys)>();
         //private C5.IntervalHeap<HeapValue> heap = new C5.IntervalHeap<HeapValue>();
 
         public int Part1()
         {
-            return Part1Rec('@', KeyToBits('@'), 1);
+            return Part1Rec('{', KeyToBits('{'), 1);
         }
 
         private Dictionary<(char, int), int> cache = new Dictionary<(char, int), int>();
@@ -205,7 +204,7 @@ namespace day18
             var traverse = keyToKeyMap[key]
                 .Where(x => ((thisAndHasKeys & KeyToBits(x.Key)) == 0) &&
                             ((thisAndHasKeys & x.Value.neededKeys) == x.Value.neededKeys));
-            
+
             int best = Int32.MaxValue;
             foreach (var p in traverse)
             {
@@ -218,11 +217,80 @@ namespace day18
 
             return best;
         }
+
+        public int Part2()
+        {
+            return Part2Rec('{', '|', '}', '~', KeyToBits('{') | KeyToBits('|') | KeyToBits('}') | KeyToBits('~'));
+        }
+
+        private Dictionary<(char, char, char, char, int), int> cache2 = new Dictionary<(char, char, char, char, int), int>();
+
+        private int Part2Rec(char key1, char key2, char key3, char key4, int hasKeys)
+        {
+            var tuple = (key1, key2, key3, key4, hasKeys);
+            int cachedSteps = cache2.GetValueOrDefault(tuple, 0);
+            if (cachedSteps > 0)
+                return cachedSteps;
+
+            int allKeys = KeyToBits(key1) | KeyToBits(key2) | KeyToBits(key3) | KeyToBits(key4) | hasKeys;
+
+            var traverse1 = keyToKeyMap[key1]
+                .Where(x => ((allKeys & KeyToBits(x.Key)) == 0) &&
+                            ((allKeys & x.Value.neededKeys) == x.Value.neededKeys));
+            var traverse2 = keyToKeyMap[key2]
+                .Where(x => ((allKeys & KeyToBits(x.Key)) == 0) &&
+                            ((allKeys & x.Value.neededKeys) == x.Value.neededKeys));
+            var traverse3 = keyToKeyMap[key3]
+                .Where(x => ((allKeys & KeyToBits(x.Key)) == 0) &&
+                            ((allKeys & x.Value.neededKeys) == x.Value.neededKeys));
+            var traverse4 = keyToKeyMap[key4]
+                .Where(x => ((allKeys & KeyToBits(x.Key)) == 0) &&
+                            ((allKeys & x.Value.neededKeys) == x.Value.neededKeys));
+
+            if (!(traverse1.Any() || traverse2.Any() || traverse3.Any() || traverse4.Any()))
+            {
+                cache2[tuple] = 0;
+                return 0;
+            }
+
+            int best = Int32.MaxValue;
+            foreach (var p in traverse1)
+            {
+                int v = Part2Rec(p.Key, key2, key3, key4, allKeys) + p.Value.steps;
+                if (v < best)
+                    best = v;
+            }
+
+            foreach (var p in traverse2)
+            {
+                int v = Part2Rec(key1, p.Key, key3, key4, allKeys) + p.Value.steps;
+                if (v < best)
+                    best = v;
+            }
+
+            foreach (var p in traverse3)
+            {
+                int v = Part2Rec(key1, key2, p.Key, key4, allKeys) + p.Value.steps;
+                if (v < best)
+                    best = v;
+            }
+
+            foreach (var p in traverse4)
+            {
+                int v = Part2Rec(key1, key2, key3, p.Key, allKeys) + p.Value.steps;
+                if (v < best)
+                    best = v;
+            }
+            
+            cache2[tuple] = best;
+
+            return best;
+        }
     };
 
     class Program
     {
-        static Map Parse(string filename)
+        static Map Parse(string filename, bool part2 = false)
         {
             string[] str = File.ReadAllLines(filename).ToArray();
 
@@ -234,6 +302,39 @@ namespace day18
             for (int x = 0; x < w; ++x)
                 map[x, y] = str[y][x];
 
+            if (part2)
+            {
+                for (int x = 0; x < w; ++x)
+                {
+                    for (int y = 0; y < h; ++y)
+                    {
+                        if (map[x, y] == '@')
+                        {
+                            map[x, y] = '#';
+                            map[x + 1, y] = '#';
+                            map[x - 1, y] = '#';
+                            map[x, y + 1] = '#';
+                            map[x, y - 1] = '#';
+                            map[x - 1, y - 1] = '{';
+                            map[x + 1, y - 1] = '|';
+                            map[x - 1, y + 1] = '}';
+                            map[x + 1, y + 1] = '~';
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (int x = 0; x < w; ++x)
+                {
+                    for (int y = 0; y < h; ++y)
+                    {
+                        if (map[x, y] == '@')
+                            map[x, y] = '{';
+                    }
+                }
+            }
+
             return new Map(map, w, h);
         }
 
@@ -243,13 +344,15 @@ namespace day18
             Console.WriteLine($"ref2 = {Parse("ref2.txt").Part1()} = 132");
             Console.WriteLine($"ref3 = {Parse("ref3.txt").Part1()} = 136");
             Console.WriteLine($"ref4 = {Parse("ref4.txt").Part1()} = 81");
-
-            Console.WriteLine($"part1 = {Parse("input1.txt").Part1()} = 5964");
             
-            // ref5 = 8
-            // ref6 = 24
-            // ref7 = 32
-            // ref8 = 72
+            Console.WriteLine($"part1 = {Parse("input1.txt").Part1()} = 5964");
+
+            Console.WriteLine($"ref5 = {Parse("ref5.txt", true).Part2()} = 8");
+            Console.WriteLine($"ref6 = {Parse("ref6.txt", true).Part2()} = 24");
+            Console.WriteLine($"ref7 = {Parse("ref7.txt", true).Part2()} = 32");
+            Console.WriteLine($"ref8 = {Parse("ref8.txt", true).Part2()} = 72");
+
+            Console.WriteLine($"part2 = {Parse("input1.txt", true).Part2()} = 1996");
         }
     }
 }
