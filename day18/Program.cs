@@ -188,14 +188,14 @@ namespace day18
             return Part1Rec('@', KeyToBits('@'), 1);
         }
 
-        private Dictionary<Tuple<char, int>, int> cache = new Dictionary<Tuple<char, int>, int>();
+        private Dictionary<(char, int), int> cache = new Dictionary<(char, int), int>();
 
         private int Part1Rec(char key, int hasKeys, int deep)
         {
             if (deep == keysCount)
                 return 0;
 
-            var tuple = new Tuple<char, int>(key, hasKeys);
+            var tuple = (key, hasKeys);
             int cachedSteps = cache.GetValueOrDefault(tuple, 0);
             if (cachedSteps > 0)
                 return cachedSteps;
@@ -245,6 +245,11 @@ namespace day18
             Console.WriteLine($"ref4 = {Parse("ref4.txt").Part1()} = 81");
 
             Console.WriteLine($"part1 = {Parse("input1.txt").Part1()} = 5964");
+            
+            // ref5 = 8
+            // ref6 = 24
+            // ref7 = 32
+            // ref8 = 72
         }
     }
 }
