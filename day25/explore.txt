@@ -1,0 +1,49 @@
+                                                
+                                                
+                                                
+                                                
+                                                
+                                                
+                  SN---OP                       
+                   | ? |                        
+                   | R-Q  G                     
+                   |      FH                    
+                LKJID-----E                     
+                 M  A                           
+                    BC                          
+                                                
+                                                
+                                                
+                                                
+                                                
+                                                
+                                                
+                                                
+
+
+A - hull breach
+B - observatory, infinite loop (useless)
+C - navigation, whirled peas (can take)
+D - holodeck, giant electromagnet (useless)
+E - warp drive maintenence, ornament
+F - kitchen, escape pod (useless)
+G - sick bay, dark matter (can take)
+H - hallway optimized for something
+I - science lab
+J - gift wrapping, candy cane (can take)
+K - passages, photons (useless)
+L - storage, tambourine (can take)
+M - chocolate fountain
+N - crew quarters, astrolabe (can take)
+O - engineering, hologram (can take)
+P - corridor, klein bottle (can take)
+Q - arcade, molten lava (useless)
+R - security checkpoint
+S - stables
+T -
+U -
+V -
+W -
+X -
+Y -
+Z -
